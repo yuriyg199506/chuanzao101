@@ -10,7 +10,7 @@ import World from './components/World'
 import { asset } from './utils/assets'
 import type { NpcChoice, NpcEvent } from './worldData'
 
-type Screen = 'start' | 'story' | 'world' | 'practice' | 'rhythm' | 'result' | 'ending'
+type Screen = 'start' | 'story' | 'world' | 'practice' | 'rhythm' | 'result' | 'promotion' | 'ending'
 
 interface SaveData {
   version: 2
@@ -38,13 +38,35 @@ export default function App() {
   const [outcome, setOutcome] = useState('')
   const [completedEvents, setCompletedEvents] = useState<string[]>([])
   const [saveMessage, setSaveMessage] = useState('')
-  const lobbyRef = useRef<HTMLAudioElement>(null)
+  const [bgmOn, setBgmOn] = useState(() => localStorage.getItem('create-a-lin-bgm') === 'true')
+  const [bgm] = useState(() => {
+    const audio = new Audio(asset('assets/audio/lobby.mp3'))
+    audio.loop = true
+    audio.volume = 0.42
+    return audio
+  })
   const importRef = useRef<HTMLInputElement>(null)
   const current = weeks[week]
 
   useEffect(() => {
     if (screen !== 'start') localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 2, week, stats, practices, completedEvents, stageBonus } satisfies SaveData))
   }, [completedEvents, practices, screen, stageBonus, stats, week])
+
+  useEffect(() => {
+    const canPlayBgm = screen !== 'rhythm' && screen !== 'ending'
+    if (bgmOn && canPlayBgm) void bgm.play().catch(() => undefined)
+    else bgm.pause()
+  }, [bgm, bgmOn, screen])
+
+  useEffect(() => () => bgm.pause(), [bgm])
+
+  const toggleBgm = () => {
+    const next = !bgmOn
+    setBgmOn(next)
+    localStorage.setItem('create-a-lin-bgm', String(next))
+    if (next && screen !== 'rhythm' && screen !== 'ending') void bgm.play().catch(() => undefined)
+    else bgm.pause()
+  }
 
   const normalizeSave = (raw: unknown): SaveData => {
     const saved = raw as Partial<SaveData> & { stats?: Partial<Stats> & { strategy?: number } }
@@ -108,7 +130,6 @@ export default function App() {
       try {
         const saved = normalizeSave(JSON.parse(localStorage.getItem(SAVE_KEY) ?? ''))
         applySave(saved)
-        lobbyRef.current?.pause()
         setScreen(saved.week === 0 ? 'story' : 'world')
         return
       } catch { /* A damaged save simply starts fresh. */ }
@@ -119,7 +140,6 @@ export default function App() {
       setStageBonus(0)
       setCompletedEvents([])
     }
-    lobbyRef.current?.pause()
     setScreen('story')
   }
 
@@ -180,6 +200,10 @@ export default function App() {
       setScreen(week === 0 ? 'story' : 'world')
       return
     }
+    setScreen('promotion')
+  }
+
+  const finishPromotion = () => {
     setStageBonus(0)
     setOutcome('')
     if (week === 6) {
@@ -196,7 +220,6 @@ export default function App() {
     return (
       <main className="start-screen scene" style={{ '--scene': `url(${asset('assets/scenes/ending.webp')})` } as React.CSSProperties}>
         <div className="scene__wash scene__wash--start" />
-        <audio ref={lobbyRef} src={asset('assets/audio/lobby.mp3')} loop preload="auto" />
         <div className="start-sparkles" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         <section className="start-content">
           <div className="crown">♛</div>
@@ -208,7 +231,7 @@ export default function App() {
             {hasSave && <button className="secondary-btn" onClick={exportSave}>导出存档</button>}
             <button className="secondary-btn" onClick={() => importRef.current?.click()}>导入存档</button>
             <input ref={importRef} className="sr-only" type="file" accept="application/json,.json" onChange={(event) => void importSave(event)} />
-            <button className="music-toggle" onClick={() => lobbyRef.current?.paused ? void lobbyRef.current.play() : lobbyRef.current?.pause()}>♫ 开启音乐</button>
+            <button className="music-toggle" onClick={toggleBgm}>{bgmOn ? '♫ 关闭音乐' : '♫ 开启音乐'}</button>
           </div>
           {saveMessage && <p className="save-message">{saveMessage}</p>}
         </section>
@@ -221,7 +244,7 @@ export default function App() {
 
   return (
     <div className="game-shell">
-      {screen !== 'rhythm' && <TopBar stats={stats} week={week} practices={practices} onSave={saveNow} onHome={() => setScreen('start')} />}
+      {screen !== 'rhythm' && screen !== 'promotion' && <TopBar stats={stats} week={week} practices={practices} bgmOn={bgmOn} onToggleBgm={toggleBgm} onSave={saveNow} onHome={() => setScreen('start')} />}
       {outcome && screen !== 'rhythm' && screen !== 'result' && <div className="toast" onAnimationEnd={() => setOutcome('')}>{outcome}</div>}
       {screen === 'story' && <Story data={current} onContinue={() => week === 0 ? startFormal() : setScreen('world')} onChoose={choose} />}
       {screen === 'world' && <World week={week} currentTrack={current} stats={stats} practices={practices} completedEvents={completedEvents} onEvent={handleNpcEvent} onPractice={() => setScreen('practice')} onPerform={startFormal} />}
@@ -242,6 +265,7 @@ export default function App() {
           </section>
         </main>
       )}
+      {screen === 'promotion' && <Promotion currentHero={current.hero} nextHero={week === 6 ? asset('assets/characters/final-hero.webp') : weeks[week + 1].hero} week={week} onContinue={finishPromotion} />}
     </div>
   )
 }
@@ -270,6 +294,33 @@ function Ending({ stats }: { stats: Stats }) {
         <div className="ending-stats"><b>颜艺 {stats.looks}</b><b>舞力 {stats.skill}</b><b>淋力 {stats.lin}</b><b>粉丝 {stats.fans}</b></div>
         <button className="primary-btn" onClick={() => void audioRef.current?.play()}>♫ 播放《终极C位》</button>
         <button className="text-btn" onClick={() => location.reload()}>再淋一次</button>
+      </section>
+    </main>
+  )
+}
+
+function Promotion({ currentHero, nextHero, week, onContinue }: { currentHero: string; nextHero: string; week: number; onContinue: () => void }) {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setReady(true), 2300)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return (
+    <main className="promotion scene" style={{ '--scene': `url(${asset('assets/scenes/ending.webp')})` } as React.CSSProperties}>
+      <div className="scene__wash scene__wash--promotion" />
+      <div className="promotion-burst" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></div>
+      <div className="evolution-stage">
+        <img className="evolution-hero evolution-hero--before" src={currentHero} alt="蜕变前形象" />
+        <div className="evolution-rings"><i /><i /><i /></div>
+        <img className="evolution-hero evolution-hero--after" src={nextHero} alt="蜕变后形象" />
+      </div>
+      <section className="promotion-copy">
+        <span>{week === 6 ? 'ULTIMATE EVOLUTION' : 'LEVEL UP'}</span>
+        <h1>{week === 6 ? '终极大花 · 降临' : '美美蜕变'}</h1>
+        <p>旧形象美美隐身，新本质闪耀登场！</p>
+        <button className={`primary-btn ${ready ? 'is-ready' : ''}`} disabled={!ready} onClick={onContinue}>{week === 6 ? '揭晓终极结局' : '进入下一周'}</button>
       </section>
     </main>
   )

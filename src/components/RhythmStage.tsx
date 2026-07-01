@@ -39,7 +39,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     let cancelled = false
     async function loadChart() {
       const fallback: LyricLine[] = [
-        { startMs: 900, endMs: 2500, text: '跟着节奏 敲一下！' },
+        { startMs: 900, endMs: 2500, text: '看准判定线 敲一下！' },
         { startMs: 2800, endMs: 5200, text: 'F 是红鼓 · J 是蓝鼓' },
       ]
       const loaded = track.srt
@@ -130,8 +130,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     setJudgement(result.toUpperCase())
     setHitFlash(true)
     window.setTimeout(() => setHitFlash(false), 90)
-    if (track.week === 0 && !practice) window.setTimeout(finish, 650)
-  }, [finish, playHit, practice, running, timingOffset, track.week])
+  }, [playHit, running, timingOffset])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -172,7 +171,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     }
   }
 
-  const activeLyric = useMemo(() => lyrics.find((line) => currentMs >= line.startMs && currentMs < line.endMs)?.text ?? '跟紧节拍，闭嘴惊艳！', [currentMs, lyrics])
+  const activeLyric = useMemo(() => lyrics.find((line) => currentMs >= line.startMs && currentMs < line.endMs)?.text ?? '看准判定线，听见底鼓再敲！', [currentMs, lyrics])
   const visibleNotes = notes.filter((note) => !note.judged && note.timeMs > currentMs - 300 && note.timeMs < currentMs + LOOK_AHEAD)
   const duration = audioRef.current?.duration || 1
 
@@ -189,10 +188,26 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     })
   }
 
+  const prepareFullTutorial = () => {
+    if (track.week !== 0 || !audioRef.current || !Number.isFinite(audioRef.current.duration)) return
+    const durationMs = audioRef.current.duration * 1000
+    const beatMs = 60000 / track.bpm
+    const segmentMs = beatMs * 4
+    const prompts = ['红鼓 Don · F / 左鼓', '蓝鼓 Ka · J / 右鼓', '看准判定线再敲', '稳住拍子，美美演奏']
+    const tutorialLyrics: LyricLine[] = []
+    for (let startMs = 900, index = 0; startMs < durationMs - 300; startMs += segmentMs, index += 1) {
+      tutorialLyrics.push({ startMs, endMs: Math.min(durationMs, startMs + segmentMs), text: prompts[index % prompts.length] })
+    }
+    const chart = lyricsToNotes(tutorialLyrics, track.bpm)
+    notesRef.current = chart
+    setLyrics(tutorialLyrics)
+    setNotes(chart)
+  }
+
   return (
-    <main className={`rhythm scene ${missShake ? 'is-miss' : ''} ${hitFlash ? 'is-hit' : ''}`} style={{ '--scene': `url(${track.scene})`, '--beat': `${60 / track.bpm}s` } as React.CSSProperties}>
+    <main className={`rhythm scene ${missShake ? 'is-miss' : ''} ${hitFlash ? 'is-hit' : ''} ${paused ? 'is-paused' : ''}`} style={{ '--scene': `url(${track.scene})`, '--beat': `${60 / track.bpm}s` } as React.CSSProperties}>
       <div className="scene__wash scene__wash--stage" />
-      <audio ref={audioRef} src={track.audio} preload="auto" onEnded={finish} />
+      <audio ref={audioRef} src={track.audio} preload="auto" onLoadedMetadata={prepareFullTutorial} onEnded={finish} />
       <div className="rhythm-system">
         {running && <button onClick={pause}>暂停</button>}
         <button onClick={onHome}>主标题</button>

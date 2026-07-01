@@ -1,7 +1,7 @@
 import type { Stats } from '../types'
 import Logo from './Logo'
 
-export default function TopBar({ stats, week, practices, onSave, onHome }: { stats: Stats; week: number; practices: number; onSave: () => void; onHome: () => void }) {
+export default function TopBar({ stats, week, practices, bgmOn, onToggleBgm, onSave, onHome }: { stats: Stats; week: number; practices: number; bgmOn: boolean; onToggleBgm: () => void; onSave: () => void; onHome: () => void }) {
   return (
     <header className="topbar">
       <Logo compact />
@@ -11,7 +11,7 @@ export default function TopBar({ stats, week, practices, onSave, onHome }: { sta
       <div className="stat-pills">
         <span>颜艺 {stats.looks}</span><span>舞力 {stats.skill}</span><span>淋力 {stats.lin}</span><span>粉丝 {stats.fans}</span><span>练 {practices}</span>
       </div>
-      <div className="system-actions"><button onClick={onSave}>保存</button><button onClick={onHome}>主标题</button></div>
+      <div className="system-actions"><button onClick={onToggleBgm}>{bgmOn ? '♫ 音乐开' : '♫ 音乐关'}</button><button onClick={onSave}>保存</button><button onClick={onHome}>主标题</button></div>
     </header>
   )
 }
