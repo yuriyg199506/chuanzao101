@@ -15,6 +15,11 @@ interface RhythmStageProps {
 const HIT_WINDOW = 230
 const PERFECT_WINDOW = 55
 const LOOK_AHEAD = 2400
+const TUTORIAL_STEPS = [
+  { title: '看准判定线', body: '音符球中心碰到左侧发光竖线时再敲。越接近中心，越容易拿到 PERFECT。' },
+  { title: '两个按键就够惹', body: '电脑按 F 敲红鼓 Don，按 J 敲蓝鼓 Ka；手机直接戳下方左右两个大鼓面。' },
+  { title: '稳住再发癫', body: '连续命中会累积 COMBO；MISS 会断连。右上角可以暂停，觉得偏拍可先调整毫秒校准。' },
+]
 
 export default function RhythmStage({ track, practice = false, bonus = 0, onFinish, onExit, onHome }: RhythmStageProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -33,6 +38,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   const [missShake, setMissShake] = useState(false)
   const [hitFlash, setHitFlash] = useState(false)
   const [timingOffset, setTimingOffset] = useState(() => Number(localStorage.getItem('rhythm-timing-offset') ?? 0))
+  const [tutorialStep, setTutorialStep] = useState(() => track.week === 1 && !practice && localStorage.getItem('create-a-lin-rhythm-tutorial') !== 'done' ? 0 : -1)
   const playHit = useSound()
 
   useEffect(() => {
@@ -47,7 +53,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
         : fallback
       if (cancelled) return
       const safeLyrics = loaded.length ? loaded : fallback
-      const chart = lyricsToNotes(safeLyrics, track.bpm)
+      const chart = lyricsToNotes(safeLyrics, track.bpm, Math.max(1, track.week))
       notesRef.current = chart
       setLyrics(safeLyrics)
       setNotes(chart)
@@ -68,18 +74,16 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   useEffect(() => {
     if (!running) return
     let frame = 0
+    let lastPaint = 0
     const tick = () => {
       const now = (audioRef.current?.currentTime ?? 0) * 1000 + timingOffset
-      setCurrentMs(now)
-      let missed = false
-      const next = notesRef.current.map((note) => {
-        if (!note.judged && note.timeMs < now - HIT_WINDOW) {
-          missed = true
-          return { ...note, judged: true, result: 'miss' as const }
-        }
-        return note
-      })
+      if (now - lastPaint >= 33 || now < lastPaint) {
+        setCurrentMs(now)
+        lastPaint = now
+      }
+      const missed = notesRef.current.some((note) => !note.judged && note.timeMs < now - HIT_WINDOW)
       if (missed) {
+        const next = notesRef.current.map((note) => !note.judged && note.timeMs < now - HIT_WINDOW ? { ...note, judged: true, result: 'miss' as const } : note)
         notesRef.current = next
         setNotes(next)
         setCombo(0)
@@ -98,12 +102,12 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   const hit = useCallback((type: DrumType) => {
     if (!running || !audioRef.current) return
     const now = audioRef.current.currentTime * 1000 + timingOffset
-    const candidates = notesRef.current
-      .filter((note) => !note.judged && note.type === type)
-      .map((note) => ({ note, distance: Math.abs(note.timeMs - now) }))
-      .filter(({ distance }) => distance <= HIT_WINDOW)
-      .sort((a, b) => a.distance - b.distance)
-    const target = candidates[0]
+    let target: { note: RhythmNote; distance: number } | undefined
+    for (const note of notesRef.current) {
+      if (note.judged || note.type !== type) continue
+      const distance = Math.abs(note.timeMs - now)
+      if (distance <= HIT_WINDOW && (!target || distance < target.distance)) target = { note, distance }
+    }
     if (!target) {
       playHit('miss')
       navigator.vibrate?.([55, 35, 80])
@@ -143,16 +147,22 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   }, [hit])
 
   const start = async () => {
-    if (!audioRef.current || !notes.length) return
+    if (!audioRef.current || !notes.length) {
+      setJudgement('谱面加载中')
+      return
+    }
     finishedRef.current = false
+    setPaused(false)
+    setRunning(true)
+    const playPromise = audioRef.current.play()
     playHit('unlock')
     try {
-      await audioRef.current.play()
+      await playPromise
     } catch {
+      setRunning(false)
       setJudgement('再点一次')
       return
     }
-    setRunning(true)
   }
 
   const pause = () => {
@@ -188,26 +198,16 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     })
   }
 
-  const prepareFullTutorial = () => {
-    if (track.week !== 0 || !audioRef.current || !Number.isFinite(audioRef.current.duration)) return
-    const durationMs = audioRef.current.duration * 1000
-    const beatMs = 60000 / track.bpm
-    const segmentMs = beatMs * 4
-    const prompts = ['红鼓 Don · F / 左鼓', '蓝鼓 Ka · J / 右鼓', '看准判定线再敲', '稳住拍子，美美演奏']
-    const tutorialLyrics: LyricLine[] = []
-    for (let startMs = 900, index = 0; startMs < durationMs - 300; startMs += segmentMs, index += 1) {
-      tutorialLyrics.push({ startMs, endMs: Math.min(durationMs, startMs + segmentMs), text: prompts[index % prompts.length] })
-    }
-    const chart = lyricsToNotes(tutorialLyrics, track.bpm)
-    notesRef.current = chart
-    setLyrics(tutorialLyrics)
-    setNotes(chart)
+  const finishTutorial = () => {
+    localStorage.setItem('create-a-lin-rhythm-tutorial', 'done')
+    setTutorialStep(-1)
+    void start()
   }
 
   return (
     <main className={`rhythm scene ${missShake ? 'is-miss' : ''} ${hitFlash ? 'is-hit' : ''} ${paused ? 'is-paused' : ''}`} style={{ '--scene': `url(${track.scene})`, '--beat': `${60 / track.bpm}s` } as React.CSSProperties}>
       <div className="scene__wash scene__wash--stage" />
-      <audio ref={audioRef} src={track.audio} preload="auto" onLoadedMetadata={prepareFullTutorial} onEnded={finish} />
+      <audio ref={audioRef} src={track.audio} preload="auto" playsInline onEnded={finish} />
       <div className="rhythm-system">
         {running && <button onClick={pause}>暂停</button>}
         <button onClick={onHome}>主标题</button>
@@ -239,7 +239,21 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
         <button className="touch-drum touch-drum--ka" onTouchStart={(event) => touch(event, 'ka')}><strong>蓝鼓</strong><span>Ka</span></button>
       </div>
 
-      {!running && !paused && !finishedRef.current && (
+      {tutorialStep >= 0 && (
+        <div className="tutorial-mask">
+          <section className="tutorial-card glass-card">
+            <div className="tutorial-progress">{TUTORIAL_STEPS.map((_, index) => <i key={index} className={index <= tutorialStep ? 'active' : ''} />)}</div>
+            <span>初舞台快速教学 · {tutorialStep + 1}/{TUTORIAL_STEPS.length}</span>
+            <h2>{TUTORIAL_STEPS[tutorialStep].title}</h2>
+            <p>{TUTORIAL_STEPS[tutorialStep].body}</p>
+            <div className="tutorial-actions">
+              <button className="text-btn" onClick={finishTutorial}>跳过教学</button>
+              <button className="primary-btn" onClick={() => tutorialStep < TUTORIAL_STEPS.length - 1 ? setTutorialStep((value) => value + 1) : finishTutorial()}>{tutorialStep < TUTORIAL_STEPS.length - 1 ? '下一步' : '直接开唱'}</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {!running && !paused && tutorialStep < 0 && !finishedRef.current && (
         <div className="stage-ready glass-card">
           <span>{practice ? '练习模式' : 'LIVE READY'}</span>
           <h2>{track.title}</h2>

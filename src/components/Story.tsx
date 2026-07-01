@@ -33,7 +33,7 @@ export default function Story({ data, onContinue, onChoose }: StoryProps) {
               </button>
             ))}
           </div>
-        ) : <button className="primary-btn" onClick={onContinue}>{data.week === 0 ? '闭嘴惊艳 · 开始教学' : '给。我。开。唱！'}</button>}
+        ) : <button className="primary-btn" onClick={onContinue}>{data.week === 0 ? '闭嘴惊艳 · 进入节目' : '给。我。开。唱！'}</button>}
       </section>
     </main>
   )

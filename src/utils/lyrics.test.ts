@@ -24,6 +24,15 @@ describe('subtitle parsers', () => {
 
   it('locks generated notes to whole beats from each subtitle anchor', () => {
     const notes = lyricsToNotes([{ startMs: 1000, endMs: 2600, text: '跟着底鼓走' }], 120)
-    expect(notes.map((note) => note.timeMs)).toEqual([1000, 1500, 2000])
+    expect(notes.map((note) => note.timeMs)).toEqual([1000, 1500, 2000, 2500])
+  })
+
+  it('makes later-stage charts clearly denser than the first stage', () => {
+    const lyrics = [{ startMs: 1000, endMs: 7000, text: 'difficulty-density-check' }]
+    const firstStage = lyricsToNotes(lyrics, 120, 1)
+    const finalStage = lyricsToNotes(lyrics, 120, 6)
+
+    expect(firstStage.length).toBeLessThan(finalStage.length)
+    expect(finalStage.length).toBeGreaterThanOrEqual(firstStage.length * 3)
   })
 })

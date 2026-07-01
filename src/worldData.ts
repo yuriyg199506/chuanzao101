@@ -29,6 +29,106 @@ export interface NpcChoice {
   result: string
 }
 
+const WEEK_REPLIES = [
+  '先别急，本公主第一周也能把事故走成红毯。',
+  '分组而已，谁是中心镜头自己会认。',
+  '恶剪想困住我？泥看我怎么把黑热搜盘活。',
+  '纽祜禄氏都来了，那就让她见识点本质。',
+  '半决赛不能隐身，本公主今天必须开大。',
+  '最后一夜惹，泥说的每句话我都记着。',
+]
+
+const WEEK_CLOSERS = [
+  '行，第一周先把路人盘成骑士。',
+  '懂惹，这周抢的不是段落，是命运。',
+  '那我等着看泥把恶剪剪回去。',
+  '好癫，我已经闻到热搜的味道惹。',
+  '半决赛就照这个路子狠狠干。',
+  '成团夜见，别让本质掉地上噜。',
+]
+
+const NPC_WEEKLY: Record<string, Array<{ hook: string; options: [string, string] }>> = {
+  'fan-data': [
+    { hook: '泥的初舞台直拍刚放出，评论区还在观望噜。', options: ['发原片证明颜艺', '先做魔性表情包'] },
+    { hook: '分组镜头太碎，站子首页该押哪一段？', options: ['主推旋转高光', '主推没抢到词也很拽'] },
+    { hook: '恶剪上热搜了，骑士们现在气到劈叉！', options: ['连夜剪澄清 CUT', '先发虐粉长图'] },
+    { hook: '对家应援铺满广场，我们要不要正面刚？', options: ['灯牌狠狠干回去', '憋个反转数据图'] },
+    { hook: '半决赛路人盘来了，大家都在问泥是谁。', options: ['投放一字马神图', '安利舞台全能合集'] },
+    { hook: '成团夜只差最后一口气，骑士全员待命！', options: ['全网投票冲顶', '守住直播实时控评'] },
+  ],
+  'green-tea': [
+    { hook: '姐姐衣服脏了也好看，不像我只能靠干净噜。', options: ['笑着借她外套改造', '回她一句泥好贴心'] },
+    { hook: '副歌好难哦，要不姐姐把中心让给我？', options: ['陪她夹音抢回来', '让段落但抢走结尾动作'] },
+    { hook: '网上都骂泥，我真的心疼到吃不下沙拉。', options: ['请她直播替我澄清', '反问她怎么吃了两碗'] },
+    { hook: '纽祜禄氏好凶，我只敢躲在姐姐身后呢。', options: ['拉她一起正面迎战', '让她去当双面传话筒'] },
+    { hook: '造型师只剩一个，姐姐应该不会跟我抢吧？', options: ['合作做双生造型', '先下手拿走化妆箱'] },
+    { hook: '成团位好少，人家只想和姐姐一起出道。', options: ['营业最后一支双人舞', '微笑告诉她名额归我'] },
+  ],
+  'lotus-mirror': [
+    { hook: '姐姐衣服弄脏了，人家真的不是故意看笑话。', options: ['借她镜子现场改造', '学她无辜脸反客为主'] },
+    { hook: '我唱副歌会不会太抢镜？姐姐别生气哦。', options: ['关滤镜公平比一次', '偷学她的泪光角度'] },
+    { hook: '导演说那些黑料不是我递的，泥信我吧？', options: ['盯着她沉默十秒', '套出递料的时间线'] },
+    { hook: '纽祜禄氏说要撕泥，我听了都替泥害怕。', options: ['请她现场站队', '借她的柔弱反杀对家'] },
+    { hook: '没有造型师好惨，我这里刚好多一套妆。', options: ['交换化妆技巧', '只借口红自己发挥'] },
+    { hook: '今晚无论谁出道，我们都是好姐妹对吧？', options: ['合照留下体面', '提醒她镜头正在直播'] },
+  ],
+  'paparazzi-tip': [
+    { hook: '我拍到泥后台改衣服，想走时尚线还是发疯线？', options: ['放出改造全过程', '只发最后惊艳成片'] },
+    { hook: '抢泥副歌那位，昨晚偷偷练了八遍假唱。', options: ['把证据留到舞台后', '现在就放预告吊胃口'] },
+    { hook: '恶剪原片我有一份，价钱嘛，看泥诚意。', options: ['拿独家采访交换', '用淋语把价格砍半'] },
+    { hook: '纽祜禄氏彩排翻车的瓜，保熟又多汁。', options: ['压住瓜专注舞台', '只放一秒引爆讨论'] },
+    { hook: '买断造型师的人我拍到了，要不要见光？', options: ['公开交易现场', '拿证据换回造型师'] },
+    { hook: '败者联盟准备在成团夜搞事，我全拍下来了。', options: ['直播前先放风', '等她们发作再反杀'] },
+  ],
+  'senior-beat': [
+    { hook: '七十二变别顾着变，第一拍先给我站稳。', options: ['慢速数拍练基础', '保留一个夸张劈叉点'] },
+    { hook: '少男杀手不是乱杀，重拍要像刀落下去。', options: ['专练重拍爆发', '把副歌动作做成记忆点'] },
+    { hook: '白眼翻天拍子刁，泥一急就会抢半拍。', options: ['关镜子只听底鼓', '边翻白眼边稳住脚步'] },
+    { hook: '大阴阳师要收着跳，阴阳怪气也得留气口。', options: ['练停顿和呼吸', '强化突然定格反差'] },
+    { hook: '美丽极限速度快，动作小了镜头吃不到。', options: ['加大动作幅度', '减少动作换稳定连击'] },
+    { hook: '塑料王冠最后一战，体力必须留到结尾。', options: ['重排体力分配', '结尾追加终极大劈叉'] },
+  ],
+  'rival-battle': [
+    { hook: '初舞台就这点动作？泥的七十二变只变了发型吧。', options: ['现场多转三圈', '回她泥连发型都没变'] },
+    { hook: '副歌都抢不到，少男看见泥只会逃跑噜。', options: ['用舞蹈中心反杀', '用一句淋语让她闭麦'] },
+    { hook: '全网都在骂泥，今天还敢来练习室？', options: ['开直播练给全网看', '关门狠狠干到凌晨'] },
+    { hook: '纽祜禄氏约的是泥，先打赢我再说吧。', options: ['来一轮即兴斗舞', '让她先读懂淋语再来'] },
+    { hook: '没造型师就退赛，别穿睡衣来半决赛。', options: ['把训练服改成高定', '借她礼服反客为主'] },
+    { hook: '今晚王冠归我，泥最多拿个塑料袋。', options: ['舞台上用实力回答', '先送她一句提前退赛快乐'] },
+  ],
+  'director-camera': [
+    { hook: '初舞台只有十五秒特写，泥打算怎么活下来？', options: ['用表情连变抢镜', '把最强动作留给特写'] },
+    { hook: '分组戏不够抓马，要不要我给泥加点冲突？', options: ['靠实力制造反差', '接受一段口语互撕'] },
+    { hook: '恶剪也是剪，能上热搜就是本事，懂不懂？', options: ['要求放出完整舞台', '顺势录一段反黑采访'] },
+    { hook: '1V1镜头很贵，泥要温柔还是发疯？', options: ['前半温柔后半发疯', '从第一秒疯到结尾'] },
+    { hook: '半决赛广告很多，泥的高光可能被切碎。', options: ['设计短促爆点动作', '争取一镜到底版本'] },
+    { hook: '成团夜全程直播，翻车可没有重录。', options: ['保守稳住全场', '赌一把终极高难动作'] },
+  ],
+  'capital-test': [
+    { hook: '初舞台数据一般，我们需要一个更好卖的人设。', options: ['坚持素人逆袭本质', '包装成发疯甜心'] },
+    { hook: '组队资源有限，听话的人才有中心镜头。', options: ['拿结果换镜头', '先拿资源再改剧本'] },
+    { hook: '黑红也是红，我们准备继续投放争议话题。', options: ['要求同步实力物料', '接受黑红但锁定澄清权'] },
+    { hook: '对家背后也有资本，泥要不要暂时低头？', options: ['正面硬刚不低头', '表面握手暗中超车'] },
+    { hook: '半决赛只保一个人，泥拿什么证明值得？', options: ['拿舞台完成度说话', '拿粉丝转化数据说话'] },
+    { hook: '王冠可以给泥，但之后的合约必须听安排。', options: ['先看清每一条合约', '拒绝王冠也不卖本质'] },
+  ],
+}
+
+export function getNpcWeekContent(event: NpcEvent, week: number): { lines: string[]; choices: NpcChoice[] } {
+  const index = Math.max(0, Math.min(5, week - 1))
+  const variant = NPC_WEEKLY[event.id]?.[index]
+  if (!variant) return { lines: event.lines, choices: event.choices }
+  return {
+    lines: [`${event.name}：${variant.hook}`, `主角：${WEEK_REPLIES[index]}`, `${event.name}：${WEEK_CLOSERS[index]}`],
+    choices: event.choices.map((choice, choiceIndex) => ({
+      ...choice,
+      label: variant.options[choiceIndex],
+      reply: `主角：${variant.options[choiceIndex]}，就这么办噜。`,
+      result: `${choice.result}（本周事件已改变。）`,
+    })),
+  }
+}
+
 export const locations: LocationData[] = [
   { id: 'dorm', name: '选手宿舍', icon: '⌂', scene: asset('assets/scenes/dorm.webp'), hint: '瓜最多的地方，睡觉只是装饰。' },
   { id: 'makeup', name: '化妆间', icon: '✦', scene: asset('assets/scenes/makeup.webp'), hint: '脸要美，话也要有本质。' },
@@ -47,7 +147,7 @@ export const npcEvents: NpcEvent[] = [
     ],
   },
   {
-    id: 'green-tea', name: '绿茶营业姐', title: '人间小夹子', location: 'dorm', minWeek: 2,
+    id: 'green-tea', name: '绿茶营业姐', title: '人间小夹子', location: 'dorm', minWeek: 1,
     portrait: asset('assets/characters/green-tea.webp'),
     lines: ['营业姐：宝宝别误会，我只是天生站 C 位。', '主角：泥不是天生，泥是硬挤。', '营业姐：哎呀，被泥看穿惹，别说出去噜。'],
     choices: [
@@ -65,7 +165,7 @@ export const npcEvents: NpcEvent[] = [
     ],
   },
   {
-    id: 'paparazzi-tip', name: '狗仔', title: '瓜田特派员', location: 'makeup', minWeek: 3,
+    id: 'paparazzi-tip', name: '狗仔', title: '瓜田特派员', location: 'makeup', minWeek: 1,
     portrait: asset('assets/characters/paparazzi.webp'),
     lines: ['狗仔：有个大瓜，泥想听不？', '主角：先说保不保熟，本公主不吃馊瓜。', '狗仔：保熟！对家假睫毛都是租的。'],
     choices: [
@@ -83,7 +183,7 @@ export const npcEvents: NpcEvent[] = [
     ],
   },
   {
-    id: 'rival-battle', name: '疯批话题王', title: '热搜常驻户', location: 'practice', minWeek: 4,
+    id: 'rival-battle', name: '疯批话题王', title: '热搜常驻户', location: 'practice', minWeek: 1,
     portrait: asset('assets/characters/rival.webp'),
     lines: ['话题王：泥练这么久，还是给我当伴舞吧。', '主角：泥先把气喘匀了再来碰瓷噜。', '话题王：啊啊啊！泥等着上热搜！'],
     choices: [
@@ -101,7 +201,7 @@ export const npcEvents: NpcEvent[] = [
     ],
   },
   {
-    id: 'capital-test', name: '资本集团', title: '看不见脸的金主', location: 'studio', minWeek: 5,
+    id: 'capital-test', name: '资本集团', title: '看不见脸的金主', location: 'studio', minWeek: 1,
     portrait: asset('assets/characters/capital.webp'),
     lines: ['资本：我们只捧听话的人。', '主角：那泥们今天算是捧错人惹。', '资本：……有个性。数据还不错，继续投。'],
     choices: [

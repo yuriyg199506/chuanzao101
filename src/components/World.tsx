@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Stats, WeekData } from '../types'
-import { locations, npcEvents, statLabels, type LocationId, type NpcChoice, type NpcEvent } from '../worldData'
+import { getNpcWeekContent, locations, npcEvents, statLabels, type LocationId, type NpcChoice, type NpcEvent } from '../worldData'
 
 interface WorldProps {
   week: number
@@ -11,16 +11,19 @@ interface WorldProps {
   onEvent: (event: NpcEvent, choice: NpcChoice) => void
   onPractice: () => void
   onPerform: () => void
+  initialLocation?: LocationId
+  guideFirstPerformance?: boolean
 }
 
-export default function World({ week, currentTrack, stats, practices, completedEvents, onEvent, onPractice, onPerform }: WorldProps) {
-  const [locationId, setLocationId] = useState<LocationId>('dorm')
+export default function World({ week, currentTrack, stats, practices, completedEvents, onEvent, onPractice, onPerform, initialLocation = 'dorm', guideFirstPerformance = false }: WorldProps) {
+  const [locationId, setLocationId] = useState<LocationId>(initialLocation)
   const [selected, setSelected] = useState<NpcEvent | null>(null)
   const [showStats, setShowStats] = useState(false)
   const location = locations.find((item) => item.id === locationId)!
   const events = useMemo(() => npcEvents.filter((event) => event.location === locationId && event.minWeek <= week), [locationId, week])
   const eventKey = selected ? `${week}:${selected.id}` : ''
   const completed = completedEvents.includes(eventKey)
+  const selectedContent = selected ? getNpcWeekContent(selected, week) : null
 
   const move = (id: LocationId) => {
     setLocationId(id)
@@ -50,9 +53,9 @@ export default function World({ week, currentTrack, stats, practices, completedE
         <section className="npc-dialogue glass-card">
           <button className="dialogue-close" onClick={() => setSelected(null)}>×</button>
           <div className="eyebrow">和 {selected.name} 聊两句</div>
-          {selected.lines.map((line) => <p key={line}>{line}</p>)}
+          {selectedContent?.lines.map((line) => <p key={line}>{line}</p>)}
           <div className="npc-choices">
-            {selected.choices.map((choice) => <button key={choice.label} disabled={completed} onClick={() => onEvent(selected, choice)}>{choice.label}</button>)}
+            {selectedContent?.choices.map((choice) => <button key={choice.label} disabled={completed} onClick={() => onEvent(selected, choice)}>{choice.label}</button>)}
           </div>
           {completed && <small className="event-complete">这周已经聊过惹，下周再来。</small>}
         </section>
@@ -64,7 +67,8 @@ export default function World({ week, currentTrack, stats, practices, completedE
 
       <div className="world-actions">
         {locationId === 'practice' && <button className="secondary-btn" onClick={onPractice}>进入练习选曲 · {practices} 次</button>}
-        {locationId === 'studio' && <button className="primary-btn" onClick={onPerform}>演出《{currentTrack.title}》</button>}
+        {locationId === 'studio' && <button className={`primary-btn ${guideFirstPerformance ? 'guided-performance' : ''}`} onClick={onPerform}>演出《{currentTrack.title}》</button>}
+        {locationId === 'studio' && guideFirstPerformance && <span className="performance-guide">点这里，第一次正式演出就要开始惹！</span>}
       </div>
 
       {showStats && (

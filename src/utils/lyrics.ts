@@ -60,15 +60,17 @@ export function parseLRC(lrcText: string): LyricLine[] {
  * Build a beat-locked chart. Each subtitle start is a fresh phase anchor, so
  * small BPM drift in unstable exports cannot accumulate across the whole song.
  */
-export function lyricsToNotes(lyrics: LyricLine[], bpm = 124): RhythmNote[] {
+export function lyricsToNotes(lyrics: LyricLine[], bpm = 124, difficulty = 3): RhythmNote[] {
   const beatMs = 60000 / bpm
   const notes: RhythmNote[] = []
   const occupied = new Set<number>()
+  const stepBeats = difficulty >= 6 ? 0.5 : difficulty === 5 ? 0.75 : difficulty >= 3 ? 1 : difficulty === 2 ? 1.5 : 2
+  const maxPerLine = difficulty >= 6 ? 14 : difficulty === 5 ? 11 : difficulty >= 3 ? 8 : difficulty === 2 ? 6 : 4
   lyrics.forEach((line, lineIndex) => {
     const duration = Math.max(beatMs, line.endMs - line.startMs)
-    const beatCount = Math.max(1, Math.min(8, Math.floor(duration / beatMs)))
-    const stride = beatCount >= 7 ? 2 : 1
-    for (let beat = 0; beat < beatCount; beat += stride) {
+    const beatCount = Math.max(1, duration / beatMs)
+    let lineNotes = 0
+    for (let beat = 0; beat < beatCount && lineNotes < maxPerLine; beat += stepBeats, lineNotes += 1) {
       const timeMs = Math.round(line.startMs + beat * beatMs)
       const timeKey = Math.round(timeMs / 20)
       if (occupied.has(timeKey)) continue

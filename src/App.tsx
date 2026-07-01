@@ -38,6 +38,7 @@ export default function App() {
   const [outcome, setOutcome] = useState('')
   const [completedEvents, setCompletedEvents] = useState<string[]>([])
   const [saveMessage, setSaveMessage] = useState('')
+  const [firstStageGuidance, setFirstStageGuidance] = useState(false)
   const [bgmOn, setBgmOn] = useState(() => localStorage.getItem('create-a-lin-bgm') === 'true')
   const [bgm] = useState(() => {
     const audio = new Audio(asset('assets/audio/lobby.mp3'))
@@ -155,6 +156,12 @@ export default function App() {
     window.setTimeout(() => setScreen('world'), 650)
   }
 
+  const enterFirstWeek = () => {
+    setWeek(1)
+    setFirstStageGuidance(true)
+    setScreen('world')
+  }
+
   const handleNpcEvent = (event: NpcEvent, choice: NpcChoice) => {
     const key = `${week}:${event.id}`
     if (completedEvents.includes(key)) return
@@ -178,6 +185,7 @@ export default function App() {
   const startFormal = () => {
     setPracticeTrack(current)
     setIsPracticeRun(false)
+    setFirstStageGuidance(false)
     setScreen('rhythm')
   }
 
@@ -246,8 +254,8 @@ export default function App() {
     <div className="game-shell">
       {screen !== 'rhythm' && screen !== 'promotion' && <TopBar stats={stats} week={week} practices={practices} bgmOn={bgmOn} onToggleBgm={toggleBgm} onSave={saveNow} onHome={() => setScreen('start')} />}
       {outcome && screen !== 'rhythm' && screen !== 'result' && <div className="toast" onAnimationEnd={() => setOutcome('')}>{outcome}</div>}
-      {screen === 'story' && <Story data={current} onContinue={() => week === 0 ? startFormal() : setScreen('world')} onChoose={choose} />}
-      {screen === 'world' && <World week={week} currentTrack={current} stats={stats} practices={practices} completedEvents={completedEvents} onEvent={handleNpcEvent} onPractice={() => setScreen('practice')} onPerform={startFormal} />}
+      {screen === 'story' && <Story data={current} onContinue={() => week === 0 ? enterFirstWeek() : setScreen('world')} onChoose={choose} />}
+      {screen === 'world' && <World key={`world-${week}-${firstStageGuidance}`} week={week} currentTrack={current} stats={stats} practices={practices} completedEvents={completedEvents} onEvent={handleNpcEvent} onPractice={() => setScreen('practice')} onPerform={startFormal} initialLocation={firstStageGuidance ? 'studio' : 'dorm'} guideFirstPerformance={firstStageGuidance} />}
       {screen === 'practice' && (
         <PracticeRoom unlocked={weeks.slice(1, week + 1)} chances={practices} bonus={stageBonus} onPractice={startPractice} onPerform={startFormal} onExit={() => setScreen('world')} />
       )}
