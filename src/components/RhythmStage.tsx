@@ -15,6 +15,8 @@ interface RhythmStageProps {
 const HIT_WINDOW = 230
 const PERFECT_WINDOW = 55
 const LOOK_AHEAD = 2400
+type BurstKind = DrumType | 'miss'
+interface HitBurst { id: number; kind: BurstKind; perfect: boolean }
 const TUTORIAL_STEPS = [
   { title: '看准判定线', body: '音符球中心碰到左侧发光竖线时再敲。越接近中心，越容易拿到 PERFECT。' },
   { title: '两个按键就够惹', body: '电脑按 F 敲红鼓 Don，按 J 敲蓝鼓 Ka；手机直接戳下方左右两个大鼓面。' },
@@ -26,6 +28,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   const notesRef = useRef<RhythmNote[]>([])
   const finishedRef = useRef(false)
   const scoreRef = useRef(0)
+  const burstIdRef = useRef(0)
   const [lyrics, setLyrics] = useState<LyricLine[]>([])
   const [notes, setNotes] = useState<RhythmNote[]>([])
   const [running, setRunning] = useState(false)
@@ -37,9 +40,16 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
   const [judgement, setJudgement] = useState('READY?')
   const [missShake, setMissShake] = useState(false)
   const [hitFlash, setHitFlash] = useState(false)
+  const [hitBursts, setHitBursts] = useState<HitBurst[]>([])
   const [timingOffset, setTimingOffset] = useState(() => Number(localStorage.getItem('rhythm-timing-offset') ?? 0))
   const [tutorialStep, setTutorialStep] = useState(() => track.week === 1 && !practice && localStorage.getItem('create-a-lin-rhythm-tutorial') !== 'done' ? 0 : -1)
   const playHit = useSound()
+
+  const spawnBurst = useCallback((kind: BurstKind, perfect = false) => {
+    const id = ++burstIdRef.current
+    setHitBursts((bursts) => [...bursts.slice(-5), { id, kind, perfect }])
+    window.setTimeout(() => setHitBursts((bursts) => bursts.filter((burst) => burst.id !== id)), 460)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -110,7 +120,8 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     }
     if (!target) {
       playHit('miss')
-      navigator.vibrate?.([55, 35, 80])
+      navigator.vibrate?.([65, 28, 90])
+      spawnBurst('miss')
       setCombo(0)
       setJudgement('MISS')
       setMissShake(true)
@@ -119,7 +130,8 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     }
     const result: NonNullable<RhythmNote['result']> = target.distance < PERFECT_WINDOW ? 'perfect' : 'good'
     playHit(type, result === 'perfect')
-    navigator.vibrate?.(result === 'perfect' ? [18, 18, 28] : 22)
+    navigator.vibrate?.(result === 'perfect' ? [30, 18, 42] : 32)
+    spawnBurst(type, result === 'perfect')
     const next = notesRef.current.map((note) => note.id === target.note.id ? { ...note, judged: true, result } : note)
     notesRef.current = next
     setNotes(next)
@@ -134,7 +146,7 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
     setJudgement(result.toUpperCase())
     setHitFlash(true)
     window.setTimeout(() => setHitFlash(false), 90)
-  }, [playHit, running, timingOffset])
+  }, [playHit, running, spawnBurst, timingOffset])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -225,6 +237,14 @@ export default function RhythmStage({ track, practice = false, bonus = 0, onFini
 
       <section className="lane" aria-label="音符轨道">
         <div className="hit-line"><b>F · J</b></div>
+        <div className="hit-burst-layer" aria-hidden="true">
+          {hitBursts.map((burst) => (
+            <span key={burst.id} className={`hit-burst hit-burst--${burst.kind} ${burst.perfect ? 'is-perfect' : ''}`}>
+              <i className="bubble-ring" />
+              {Array.from({ length: 10 }, (_, index) => <i key={index} className="bubble-shard" style={{ '--shard': index, '--distance': `${48 + (index % 3) * 8}px` } as React.CSSProperties} />)}
+            </span>
+          ))}
+        </div>
         <div className="lane-line" />
         {visibleNotes.map((note) => (
           <span key={note.id} className={`note note--${note.type}`} style={{ left: `${17 + ((note.timeMs - currentMs) / LOOK_AHEAD) * 80}%` }}>
